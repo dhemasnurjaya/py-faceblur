@@ -1,0 +1,22 @@
+[project]
+name = "faceblur-poc"
+version = "0.1.0"
+description = "Face detection and clustering POC"
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "uniface",
+    "numpy",
+    "opencv-python",
+    "scikit-learn",
+]
+
+[project.scripts]
+faceblur-poc = "faceblur.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/faceblur"]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
