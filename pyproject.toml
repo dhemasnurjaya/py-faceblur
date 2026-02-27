@@ -9,10 +9,13 @@ dependencies = [
     "numpy",
     "opencv-python",
     "scikit-learn",
+    "textual>=2.0.0",
+    "textual-autocomplete>=4.0.0",
 ]
 
 [project.scripts]
 faceblur-poc = "faceblur.cli:main"
+pyfaceblur = "faceblur.app:run"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/faceblur"]
