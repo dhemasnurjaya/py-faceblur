@@ -337,6 +337,16 @@ class FaceSelectionScreen(Screen):
     .face-row {
         height: 3;
         margin-bottom: 0;
+        align: left middle;
+    }
+
+    .face-checkbox {
+        width: 80%;
+    }
+
+    .view-btn {
+        min-width: 8;
+        margin-left: 2;
     }
 
     #blur-method-label {
@@ -391,14 +401,22 @@ class FaceSelectionScreen(Screen):
                             sample_info = (
                                 f"  [dim]{self.face_samples[cluster.id]}[/dim]"
                             )
-                        yield Checkbox(
-                            f"Person {cluster.id + 1}  "
-                            f"({len(cluster.faces)} detections)"
-                            f"{sample_info}",
-                            value=True,
-                            id=f"cluster-{cluster.id}",
-                            classes="face-row",
-                        )
+                        with Horizontal(classes="face-row"):
+                            yield Checkbox(
+                                f"Person {cluster.id + 1}  "
+                                f"({len(cluster.faces)} detections)"
+                                f"{sample_info}",
+                                value=True,
+                                id=f"cluster-{cluster.id}",
+                                classes="face-checkbox",
+                            )
+                            if cluster.id in self.face_samples:
+                                yield Button(
+                                    "View",
+                                    id=f"view-{cluster.id}",
+                                    variant="default",
+                                    classes="view-btn",
+                                )
                     yield Label("Blur method:", id="blur-method-label")
                     yield Select(
                         [
@@ -424,6 +442,25 @@ class FaceSelectionScreen(Screen):
             self.app.pop_screen()
         elif event.button.id == "blur-btn":
             self._start_encoding()
+        elif event.button.id and event.button.id.startswith("view-"):
+            cluster_id = int(event.button.id.split("-")[1])
+            if cluster_id in self.face_samples:
+                self._open_image(self.face_samples[cluster_id])
+
+    def _open_image(self, path: Path) -> None:
+        """Open image in default viewer."""
+        import subprocess
+        import sys
+
+        try:
+            if sys.platform == "darwin":
+                subprocess.run(["open", str(path)])
+            elif sys.platform == "win32":
+                os.startfile(str(path))
+            else:
+                subprocess.run(["xdg-open", str(path)])
+        except Exception:
+            pass  # Ignore if viewer fails to launch
 
     def _start_encoding(self) -> None:
         # Collect selected cluster IDs
@@ -438,7 +475,9 @@ class FaceSelectionScreen(Screen):
             if cluster.id == -1:
                 selected_ids.add(-1)
 
-        blur_method = self.query_one("#blur-method", Select).value
+        blur_method = str(self.query_one("#blur-method", Select).value)
+        if blur_method == "Select.NoSelection":
+            blur_method = "gaussian"
 
         # Generate output path
         stem = self.video_path.stem
