@@ -458,9 +458,45 @@ class FaceSelectionScreen(Screen):
         )
 
 
-# Forward declaration — EncodingScreen will be added in Task 7
 class EncodingScreen(Screen):
-    """Placeholder — replaced in Task 7."""
+    """Encoding screen — re-encode video with face blur applied."""
+
+    DEFAULT_CSS = """
+    EncodingScreen {
+        align: center middle;
+    }
+
+    #encoding-container {
+        width: 60;
+        height: auto;
+        border: round $accent;
+        padding: 1 2;
+    }
+
+    #encoding-title {
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    #encoding-status {
+        color: $text-muted;
+    }
+
+    #encoding-progress {
+        margin: 1 0;
+    }
+
+    #output-label {
+        margin-top: 1;
+    }
+
+    #done-btn {
+        margin-top: 1;
+        width: 100%;
+        display: none;
+    }
+    """
 
     def __init__(
         self,
@@ -474,9 +510,71 @@ class EncodingScreen(Screen):
     ) -> None:
         super().__init__()
         self.video_path = video_path
+        self.output_path = output_path
+        self.clusters = clusters
+        self.selected_cluster_ids = selected_cluster_ids
+        self.interval = interval
+        self.blur_method = blur_method
+        self.temp_dir = temp_dir
 
     def compose(self) -> ComposeResult:
-        yield Label(f"Encoding {self.video_path}...")
+        with Center():
+            with Middle():
+                with Vertical(id="encoding-container"):
+                    yield Static("PyFaceBlur", id="encoding-title")
+                    yield Label("Encoding video with face blur...", id="encoding-phase")
+                    yield ProgressBar(total=100, id="encoding-progress")
+                    yield Label("", id="encoding-status")
+                    yield Label(f"Output: {self.output_path}", id="output-label")
+                    yield Button("Done — Exit", id="done-btn", variant="success")
+
+    def on_mount(self) -> None:
+        self.run_worker(self._encode(), thread=True)
+
+    def _update_ui(self, status: str, progress: float) -> None:
+        self.call_from_thread(self._do_update_ui, status, progress)
+
+    def _do_update_ui(self, status: str, progress: float) -> None:
+        self.query_one("#encoding-status", Label).update(status)
+        bar = self.query_one("#encoding-progress", ProgressBar)
+        bar.update(progress=progress)
+
+    def _encode(self) -> None:
+        """Run encoding in background thread."""
+        from .encode import encode_video
+
+        def on_progress(current: int, total: int) -> None:
+            pct = (current / total) * 100 if total > 0 else 0
+            self._update_ui(f"Frame {current}/{total}", pct)
+
+        try:
+            encode_video(
+                input_path=self.video_path,
+                output_path=self.output_path,
+                clusters=self.clusters,
+                selected_cluster_ids=self.selected_cluster_ids,
+                frame_interval=self.interval,
+                blur_method=self.blur_method,
+                progress_callback=on_progress,
+            )
+            self._update_ui("Encoding complete!", 100)
+            self.call_from_thread(self._show_done)
+        except Exception as e:
+            self._update_ui(f"Error: {e}", 0)
+
+    def _show_done(self) -> None:
+        self.query_one("#encoding-phase", Label).update("Encoding complete!")
+        btn = self.query_one("#done-btn", Button)
+        btn.styles.display = "block"
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "done-btn":
+            # Cleanup temp directory
+            import shutil
+
+            if self.temp_dir and Path(self.temp_dir).exists():
+                shutil.rmtree(self.temp_dir, ignore_errors=True)
+            self.app.exit()
 
 
 class PyFaceBlurApp(App):
