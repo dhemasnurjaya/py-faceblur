@@ -197,7 +197,7 @@ class ProcessingScreen(Screen):
 
     def _update_ui(self, phase: str, status: str, progress: float) -> None:
         """Thread-safe UI update."""
-        self.call_from_thread(self._do_update_ui, phase, status, progress)
+        self.app.call_from_thread(self._do_update_ui, phase, status, progress)
 
     def _do_update_ui(self, phase: str, status: str, progress: float) -> None:
         self.query_one("#phase-label", Label).update(phase)
@@ -268,7 +268,7 @@ class ProcessingScreen(Screen):
 
         # Write face samples and transition to selection screen
         face_samples = self._write_face_samples()
-        self.call_from_thread(
+        self.app.call_from_thread(
             self.app.push_screen,
             FaceSelectionScreen(
                 video_path=self.video_path,
@@ -571,7 +571,7 @@ class EncodingScreen(Screen):
         self.run_worker(self._encode(), thread=True)
 
     def _update_ui(self, status: str, progress: float) -> None:
-        self.call_from_thread(self._do_update_ui, status, progress)
+        self.app.call_from_thread(self._do_update_ui, status, progress)
 
     def _do_update_ui(self, status: str, progress: float) -> None:
         self.query_one("#encoding-status", Label).update(status)
@@ -597,7 +597,7 @@ class EncodingScreen(Screen):
                 progress_callback=on_progress,
             )
             self._update_ui("Encoding complete!", 100)
-            self.call_from_thread(self._show_done)
+            self.app.call_from_thread(self._show_done)
         except Exception as e:
             self._update_ui(f"Error: {e}", 0)
 
