@@ -26,8 +26,8 @@ class FaceData:
 class FaceDetector:
     """Face detector using RetinaFace + ArcFace via UniFace."""
 
-    def __init__(self):
-        self.detector = RetinaFace()
+    def __init__(self, confidence_threshold: float = 0.7):
+        self.detector = RetinaFace(confidence_threshold=confidence_threshold)
         self.recognizer = ArcFace()
 
     def detect_faces(self, frame_path: Path, frame_index: int) -> List[FaceData]:

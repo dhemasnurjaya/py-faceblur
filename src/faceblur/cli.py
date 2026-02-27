@@ -1,8 +1,15 @@
 """CLI module for faceblur-poc."""
 
 import argparse
+import os
 import sys
 from pathlib import Path
+
+# Set model cache to project-local models/ directory before importing uniface
+os.environ.setdefault(
+    "UNIFACE_CACHE_DIR",
+    str(Path(__file__).resolve().parent.parent.parent / "models"),
+)
 
 from .video import extract_frames
 from .detect import FaceDetector
@@ -35,6 +42,12 @@ def main():
     detect_parser.add_argument(
         "--min-samples", type=int, default=2, help="DBSCAN min_samples"
     )
+    detect_parser.add_argument(
+        "--confidence",
+        type=float,
+        default=0.7,
+        help="Minimum face detection confidence (0-1)",
+    )
 
     args = parser.parse_args()
 
@@ -66,7 +79,7 @@ def run_detect(args):
         sys.exit(1)
 
     print("\n[2/5] Initializing face detector...")
-    detector = FaceDetector()
+    detector = FaceDetector(confidence_threshold=args.confidence)
 
     print("\n[3/5] Detecting faces...")
     all_faces = []
