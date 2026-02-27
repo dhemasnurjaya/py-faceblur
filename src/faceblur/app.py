@@ -11,9 +11,18 @@ os.environ.setdefault(
 
 from textual.app import App, ComposeResult
 from textual.binding import Binding
-from textual.containers import Center, Middle, Vertical
+from textual.containers import Center, Horizontal, Middle, Vertical
 from textual.screen import Screen
-from textual.widgets import Button, Footer, Input, Label, ProgressBar, Static
+from textual.widgets import (
+    Button,
+    Checkbox,
+    Footer,
+    Input,
+    Label,
+    ProgressBar,
+    Select,
+    Static,
+)
 from textual_autocomplete import PathAutoComplete
 
 
@@ -298,9 +307,53 @@ class ProcessingScreen(Screen):
         return face_samples
 
 
-# Forward declaration — FaceSelectionScreen will be added in Task 6
 class FaceSelectionScreen(Screen):
-    """Placeholder — replaced in Task 6."""
+    """Face selection screen — choose which faces to blur."""
+
+    DEFAULT_CSS = """
+    FaceSelectionScreen {
+        align: center middle;
+    }
+
+    #selection-container {
+        width: 65;
+        height: auto;
+        max-height: 30;
+        border: round $accent;
+        padding: 1 2;
+    }
+
+    #selection-title {
+        text-align: center;
+        text-style: bold;
+        margin-bottom: 1;
+    }
+
+    #selection-help {
+        color: $text-muted;
+        margin-bottom: 1;
+    }
+
+    .face-row {
+        height: 3;
+        margin-bottom: 0;
+    }
+
+    #blur-method-label {
+        margin-top: 1;
+        color: $text-muted;
+    }
+
+    #buttons-row {
+        margin-top: 1;
+        height: 3;
+        align: center middle;
+    }
+
+    #buttons-row Button {
+        margin: 0 1;
+    }
+    """
 
     def __init__(
         self,
@@ -313,9 +366,117 @@ class FaceSelectionScreen(Screen):
     ) -> None:
         super().__init__()
         self.video_path = video_path
+        self.interval = interval
+        self.clusters = clusters
+        self.all_faces = all_faces
+        self.face_samples = face_samples
+        self.temp_dir = temp_dir
+        # Only show real clusters (not noise cluster -1)
+        self.real_clusters = [c for c in clusters if c.id >= 0]
 
     def compose(self) -> ComposeResult:
-        yield Label(f"Face Selection for {self.video_path}...")
+        with Center():
+            with Middle():
+                with Vertical(id="selection-container"):
+                    yield Static("PyFaceBlur — Select Faces", id="selection-title")
+                    yield Label(
+                        f"Found {len(self.real_clusters)} people. "
+                        "All faces will be blurred.\n"
+                        "Uncheck faces you want to KEEP visible.",
+                        id="selection-help",
+                    )
+                    for cluster in self.real_clusters:
+                        sample_info = ""
+                        if cluster.id in self.face_samples:
+                            sample_info = (
+                                f"  [dim]{self.face_samples[cluster.id]}[/dim]"
+                            )
+                        yield Checkbox(
+                            f"Person {cluster.id + 1}  "
+                            f"({len(cluster.faces)} detections)"
+                            f"{sample_info}",
+                            value=True,
+                            id=f"cluster-{cluster.id}",
+                            classes="face-row",
+                        )
+                    yield Label("Blur method:", id="blur-method-label")
+                    yield Select(
+                        [
+                            ("Gaussian", "gaussian"),
+                            ("Pixelate", "pixelate"),
+                            ("Blackout", "blackout"),
+                            ("Elliptical", "elliptical"),
+                            ("Median", "median"),
+                        ],
+                        value="gaussian",
+                        id="blur-method",
+                    )
+                    with Horizontal(id="buttons-row"):
+                        yield Button("Back", id="back-btn")
+                        yield Button(
+                            "Blur Selected",
+                            id="blur-btn",
+                            variant="primary",
+                        )
+
+    def on_button_pressed(self, event: Button.Pressed) -> None:
+        if event.button.id == "back-btn":
+            self.app.pop_screen()
+        elif event.button.id == "blur-btn":
+            self._start_encoding()
+
+    def _start_encoding(self) -> None:
+        # Collect selected cluster IDs
+        selected_ids = set()
+        for cluster in self.real_clusters:
+            cb = self.query_one(f"#cluster-{cluster.id}", Checkbox)
+            if cb.value:
+                selected_ids.add(cluster.id)
+
+        # Always include noise cluster (-1) if it exists
+        for cluster in self.clusters:
+            if cluster.id == -1:
+                selected_ids.add(-1)
+
+        blur_method = self.query_one("#blur-method", Select).value
+
+        # Generate output path
+        stem = self.video_path.stem
+        suffix = self.video_path.suffix
+        output_path = self.video_path.parent / f"{stem}_blurred{suffix}"
+
+        self.app.push_screen(
+            EncodingScreen(
+                video_path=self.video_path,
+                output_path=output_path,
+                clusters=self.clusters,
+                selected_cluster_ids=selected_ids,
+                interval=self.interval,
+                blur_method=blur_method,
+                temp_dir=self.temp_dir,
+            )
+        )
+
+
+# Forward declaration — EncodingScreen will be added in Task 7
+class EncodingScreen(Screen):
+    """Placeholder — replaced in Task 7."""
+
+    def __init__(
+        self,
+        video_path: Path,
+        output_path: Path,
+        clusters: list,
+        selected_cluster_ids: set,
+        interval: int,
+        blur_method: str,
+        temp_dir: str,
+    ) -> None:
+        super().__init__()
+        self.video_path = video_path
+
+    def compose(self) -> ComposeResult:
+        yield Label(f"Encoding {self.video_path}...")
 
 
 class PyFaceBlurApp(App):
