@@ -32,6 +32,7 @@ os.environ.setdefault(
 
 from .cluster import cluster_faces
 from .detect import FaceDetector
+from .detect_yunet import YuNetDetector
 from .encode import encode_video, find_best_encoder
 from .video import extract_frames
 
@@ -75,18 +76,91 @@ def run() -> None:
 
     video_path = Path(video_str).expanduser()
 
-    interval_str = questionary.text(
-        "Frame interval for face detection (default: 30):",
-        default="30",
-        validate=lambda text: (
-            text.isdigit() and int(text) > 0 or "Must be a positive integer"
-        ),
+    # Advanced settings
+    use_advanced = questionary.confirm(
+        "Configure advanced settings?",
+        default=False,
     ).ask()
 
-    if not interval_str:
+    if use_advanced is None:
         return
 
-    interval = int(interval_str)
+    # Defaults
+    interval = 15
+    min_cluster_size = 2
+    confidence_threshold = 0.8
+    min_face_size = 50
+    detector_type = "retinaface"
+
+    if use_advanced:
+        interval_str = questionary.text(
+            "Frame interval for face detection (default: 15):",
+            default="15",
+            validate=lambda text: (
+                text.isdigit() and int(text) > 0 or "Must be a positive integer"
+            ),
+        ).ask()
+
+        if not interval_str:
+            return
+
+        interval = int(interval_str)
+
+        min_cluster_str = questionary.text(
+            "Minimum faces to form a cluster (default: 2):",
+            default="2",
+            validate=lambda text: (
+                text.isdigit() and int(text) >= 2 or "Must be an integer >= 2"
+            ),
+        ).ask()
+
+        if not min_cluster_str:
+            return
+
+        min_cluster_size = int(min_cluster_str)
+
+        detector_type = questionary.select(
+            "Select face detector:",
+            choices=[
+                questionary.Choice("RetinaFace (Default)", value="retinaface"),
+                questionary.Choice(
+                    "YuNet (Alternative - built into OpenCV)", value="yunet"
+                ),
+            ],
+            default="retinaface",
+        ).ask()
+
+        if not detector_type:
+            return
+
+        confidence_str = questionary.text(
+            "Detection confidence threshold (0.0-1.0, default: 0.8):",
+            default="0.8",
+            validate=lambda text: (
+                text.replace(".", "", 1).isdigit()
+                and 0.0 <= float(text) <= 1.0
+                or "Must be a number between 0.0 and 1.0"
+            ),
+        ).ask()
+
+        if not confidence_str:
+            return
+
+        confidence_threshold = float(confidence_str)
+
+        min_face_str = questionary.text(
+            "Minimum face size in pixels (default: 50):",
+            default="50",
+            validate=lambda text: (
+                text.isdigit() and int(text) >= 10 or "Must be an integer >= 10"
+            ),
+        ).ask()
+
+        if not min_face_str:
+            return
+
+        min_face_size = int(min_face_str)
+
     temp_dir = tempfile.mkdtemp(prefix="pyfaceblur_")
 
     try:
@@ -117,7 +191,19 @@ def run() -> None:
             task_detect = progress.add_task(
                 "[cyan]Detecting faces...", total=len(frames)
             )
-            detector = FaceDetector()
+
+            # Create detector based on user choice
+            if detector_type == "yunet":
+                detector = YuNetDetector(
+                    confidence_threshold=confidence_threshold,
+                    min_face_size=min_face_size,
+                )
+            else:
+                detector = FaceDetector(
+                    confidence_threshold=confidence_threshold,
+                    min_face_size=min_face_size,
+                )
+
             all_faces = []
 
             for i, frame in enumerate(frames):
@@ -140,7 +226,7 @@ def run() -> None:
                 return
 
             task_cluster = progress.add_task("[cyan]Clustering faces...", total=None)
-            clusters = cluster_faces(all_faces)
+            clusters = cluster_faces(all_faces, min_samples=min_cluster_size)
             real_clusters = [c for c in clusters if c.id >= 0]
             progress.update(
                 task_cluster,

@@ -13,7 +13,7 @@ def apply_blur(
     bbox: Tuple[int, int, int, int],
     method: BlurMethod = "gaussian",
     strength: float = 5.0,
-    padding: float = 0.25,
+    padding: float = 0.40,
 ) -> np.ndarray:
     """Apply blur to a face region in an image.
 
@@ -22,7 +22,7 @@ def apply_blur(
         bbox: Face bounding box (x1, y1, x2, y2)
         method: Blur method name
         strength: Blur strength multiplier
-        padding: Percentage to expand the bounding box to prevent tracking lag exposure
+        padding: Percentage to expand the bounding box (default: 0.40 = 40%)
 
     Returns:
         The modified image
@@ -111,6 +111,7 @@ def get_bboxes_for_frame(
     frame_index: int,
     keyframe_bboxes: Dict[int, List[Tuple[int, Tuple[int, int, int, int]]]],
     keyframe_indices: List[int],
+    extend_frames: int = 0,
 ) -> List[Tuple[int, Tuple[int, int, int, int]]]:
     """Get bounding boxes for a frame by looking up or interpolating from keyframes.
 
@@ -118,6 +119,7 @@ def get_bboxes_for_frame(
         frame_index: The current frame number
         keyframe_bboxes: Dict mapping keyframe index -> list of (cluster_id, bbox)
         keyframe_indices: Sorted list of keyframe indices
+        extend_frames: Number of frames to extend blur before first and after last detection
 
     Returns:
         List of (cluster_id, bbox) for this frame
@@ -138,11 +140,14 @@ def get_bboxes_for_frame(
         if ki > frame_index and next_idx is None:
             next_idx = ki
 
-    # Before first or after last keyframe
+    # Before first keyframe - extend blur backward if within extend_frames
     if prev_idx is None and next_idx is not None:
         return keyframe_bboxes[next_idx]
+
+    # After last keyframe - extend blur forward if within extend_frames
     if next_idx is None and prev_idx is not None:
         return keyframe_bboxes[prev_idx]
+
     if prev_idx is None or next_idx is None:
         return []
 

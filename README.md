@@ -51,3 +51,9 @@ The original proof-of-concept command-line interface is also still available for
 ```bash
 uv run pyfaceblur-legacy detect --video input.mp4 --output ./output --interval 30 --confidence 0.7
 ```
+
+## Limitations
+
+- **Extreme face angles:** Faces viewed from extreme angles (e.g., strong profile views, looking up/down) may not be detected or may be clustered as separate identities. For best results, use videos where faces are mostly front-facing or at moderate angles.
+- **Small/distant faces:** Very small faces (below 50 pixels) may not be reliably detected or produce accurate embeddings for clustering.
+- **Rapid motion blur:** Fast head movements causing motion blur can affect detection accuracy.
