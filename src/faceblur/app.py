@@ -23,14 +23,21 @@ from textual.widgets import (
     Select,
     Static,
 )
-from textual.events import Key
+from textual import events
 import glob
 
 
 class PathInput(Input):
     """Custom input for bash-like path tab completion."""
 
-    def on_key(self, event: Key) -> None:
+    def on_paste(self, event: events.Paste) -> None:
+        # Schedule moving cursor to the end after the default paste handler runs
+        self.call_after_refresh(self._move_cursor_to_end)
+
+    def _move_cursor_to_end(self) -> None:
+        self.cursor_position = len(self.value)
+
+    def on_key(self, event: events.Key) -> None:
         if event.key == "tab":
             current = self.value
             if not current:
@@ -66,16 +73,6 @@ class PathInput(Input):
                 self.cursor_position = len(self.value)
                 event.prevent_default()
                 event.stop()
-
-
-LOGO = r"""
- ____        _____              ____  _
-|  _ \ _   _|  ___|_ _  ___ __|  _ \| |_   _ _ __
-| |_) | | | | |_ / _` |/ __/ _ \ |_) | | | | | '__|
-|  __/| |_| |  _| (_| | (_|  __/  _ <| | |_| | |
-|_|    \__, |_|  \__,_|\___\___|_| \_\_|\__,_|_|
-       |___/
-"""
 
 
 class WelcomeScreen(Screen):
@@ -141,6 +138,7 @@ class WelcomeScreen(Screen):
 
                     yield Label("", id="error-label")
                     yield Button("Start Processing", id="start-btn", variant="primary")
+        yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "start-btn":
@@ -225,6 +223,7 @@ class ProcessingScreen(Screen):
                     yield Label("[1/3] Preparing...", id="phase-label")
                     yield ProgressBar(total=100, id="progress-bar")
                     yield Label("", id="status-label")
+        yield Footer()
 
     def on_mount(self) -> None:
         self.run_worker(self._process, thread=True)
@@ -410,10 +409,11 @@ class FaceSelectionScreen(Screen):
     #buttons-row {
         margin-top: 1;
         height: 3;
-        align: center middle;
+        width: 100%;
     }
 
     #buttons-row Button {
+        width: 1fr;
         margin: 0 1;
     }
     """
@@ -493,10 +493,11 @@ class FaceSelectionScreen(Screen):
                             id="blur-btn",
                             variant="primary",
                         )
+        yield Footer()
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "back-btn":
-            self.app.pop_screen()
+            self.app.switch_screen("welcome")
         elif event.button.id == "blur-btn":
             self._start_encoding()
         elif event.button.id and event.button.id.startswith("view-"):
@@ -622,6 +623,7 @@ class EncodingScreen(Screen):
                     yield Label("", id="encoding-status")
                     yield Label(f"Output: {self.output_path.name}", id="output-label")
                     yield Button("Done — Exit", id="done-btn", variant="success")
+        yield Footer()
 
     def on_mount(self) -> None:
         self.run_worker(self._encode, thread=True)
@@ -688,11 +690,15 @@ class PyFaceBlurApp(App):
     }
     """
     BINDINGS = [
+        Binding("tab", "focus_next", "Focus Next", show=True),
+        Binding("shift+tab", "focus_previous", "Focus Prev", show=True),
         Binding("q", "quit", "Quit", show=True),
     ]
 
+    SCREENS = {"welcome": WelcomeScreen}
+
     def on_mount(self) -> None:
-        self.push_screen(WelcomeScreen())
+        self.push_screen("welcome")
 
 
 def run() -> None:
