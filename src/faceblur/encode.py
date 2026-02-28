@@ -92,35 +92,129 @@ def probe_video(video_path: Path) -> dict:
     return info
 
 
-def find_best_encoder() -> str:
+def find_best_encoder() -> Tuple[str, List[str], List[str]]:
     """Find the best available H.264 encoder by testing each in priority order.
 
     Returns:
-        Name of the best available encoder
+        (encoder_name, input_args, output_args)
     """
-    for encoder in ENCODER_PRIORITY:
-        cmd = [
-            "ffmpeg",
-            "-v",
-            "quiet",
-            "-f",
-            "lavfi",
-            "-i",
-            "nullsrc=s=64x64:d=0.1",
-            "-c:v",
-            encoder,
-            "-f",
-            "null",
-            "-",
-        ]
-        result = subprocess.run(cmd, capture_output=True, timeout=10)
-        if result.returncode == 0:
-            return encoder
+    # 1. NVIDIA NVENC
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-c:v",
+        "h264_nvenc",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "h264_nvenc", [], []
 
-    raise RuntimeError(
-        "No H.264 encoder found. Available encoders checked: "
-        + ", ".join(ENCODER_PRIORITY)
-    )
+    # 2. Linux VA-API (AMD/Intel)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-vf",
+        "format=nv12,hwupload",
+        "-c:v",
+        "h264_vaapi",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return (
+            "h264_vaapi",
+            ["-vaapi_device", "/dev/dri/renderD128"],
+            ["-vf", "format=nv12,hwupload"],
+        )
+
+    # 3. AMD AMF (Windows/Proprietary Linux)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-c:v",
+        "h264_amf",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "h264_amf", [], []
+
+    # 4. Intel QSV
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-c:v",
+        "h264_qsv",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "h264_qsv", [], []
+
+    # 5. Software fallback (libx264 if installed)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-c:v",
+        "libx264",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "libx264", [], []
+
+    # 6. Software fallback (libopenh264)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-c:v",
+        "libopenh264",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "libopenh264", [], []
+
+    raise RuntimeError("No suitable H.264 encoder found on this system.")
 
 
 def build_keyframe_bboxes(
@@ -162,7 +256,8 @@ def encode_video(
     frame_interval: int,
     blur_method: BlurMethod = "gaussian",
     progress_callback: Optional[Callable[[int, int], None]] = None,
-) -> None:
+    encoder_override: Optional[Tuple[str, List[str], List[str]]] = None,
+) -> str:
     """Re-encode video with face blur applied to selected clusters.
 
     Args:
@@ -173,9 +268,17 @@ def encode_video(
         frame_interval: Frame interval used during detection
         blur_method: Blur method to use
         progress_callback: Called with (current_frame, total_frames)
+        encoder_override: Optional tuple of (encoder_name, enc_in_args, enc_out_args)
+
+    Returns:
+        String description of the encoder used (for UI reporting)
     """
     video_info = probe_video(input_path)
-    encoder = find_best_encoder()
+
+    if encoder_override:
+        encoder_name, enc_in_args, enc_out_args = encoder_override
+    else:
+        encoder_name, enc_in_args, enc_out_args = find_best_encoder()
 
     keyframe_bboxes, keyframe_indices = build_keyframe_bboxes(
         clusters,
@@ -203,37 +306,38 @@ def encode_video(
     height, width = first_frame.shape[:2]
 
     # Build FFmpeg encode command
-    ffmpeg_cmd = [
-        "ffmpeg",
-        "-y",
-        "-f",
-        "rawvideo",
-        "-pix_fmt",
-        "bgr24",
-        "-s",
-        f"{width}x{height}",
-        "-r",
-        str(fps),
-        "-i",
-        "pipe:0",
-        "-i",
-        str(input_path),
-        "-map",
-        "0:v:0",
-    ]
+    ffmpeg_cmd = ["ffmpeg", "-y"]
+    ffmpeg_cmd.extend(enc_in_args)
+    ffmpeg_cmd.extend(
+        [
+            "-f",
+            "rawvideo",
+            "-pix_fmt",
+            "bgr24",
+            "-s",
+            f"{width}x{height}",
+            "-r",
+            str(fps),
+            "-i",
+            "pipe:0",
+            "-i",
+            str(input_path),
+            "-map",
+            "0:v:0",
+        ]
+    )
 
     # Map audio from original if present
     if video_info["audio_codec"]:
         ffmpeg_cmd.extend(["-map", "1:a:0", "-c:a", "copy"])
 
+    ffmpeg_cmd.extend(enc_out_args)
     ffmpeg_cmd.extend(
         [
             "-c:v",
-            encoder,
+            encoder_name,
             "-b:v",
             str(bitrate),
-            "-pix_fmt",
-            "yuv420p",
             str(output_path),
         ]
     )
@@ -283,3 +387,5 @@ def encode_video(
     if proc.returncode != 0:
         stderr = proc.stderr.read().decode() if proc.stderr else ""
         raise RuntimeError(f"FFmpeg encoding failed: {stderr}")
+
+    return encoder_name

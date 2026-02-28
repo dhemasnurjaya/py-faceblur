@@ -149,20 +149,10 @@ def get_bboxes_for_frame(
             bbox = interpolate_bboxes(prev_by_cluster[cid], next_by_cluster[cid], t)
             result.append((cid, bbox))
         elif cid in prev_by_cluster:
-            # Face leaving: shrink to center of previous bbox
-            x1, y1, x2, y2 = prev_by_cluster[cid]
-            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-            center_bbox = (cx, cy, cx, cy)
-            # Interpolate from full bbox (t=0) to center point (t=1)
-            bbox = interpolate_bboxes(prev_by_cluster[cid], center_bbox, t)
-            result.append((cid, bbox))
+            # Face leaving: hold previous bbox static to ensure privacy until next keyframe
+            result.append((cid, prev_by_cluster[cid]))
         else:
-            # Face entering: grow from center of next bbox
-            x1, y1, x2, y2 = next_by_cluster[cid]
-            cx, cy = (x1 + x2) // 2, (y1 + y2) // 2
-            center_bbox = (cx, cy, cx, cy)
-            # Interpolate from center point (t=0) to full bbox (t=1)
-            bbox = interpolate_bboxes(center_bbox, next_by_cluster[cid], t)
-            result.append((cid, bbox))
+            # Face entering: hold next bbox static to ensure privacy from previous keyframe
+            result.append((cid, next_by_cluster[cid]))
 
     return result

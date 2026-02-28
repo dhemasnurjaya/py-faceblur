@@ -23,7 +23,48 @@ from textual.widgets import (
     Select,
     Static,
 )
-from textual_autocomplete import PathAutoComplete
+from textual.events import Key
+import glob
+
+
+class PathInput(Input):
+    """Custom input for bash-like path tab completion."""
+
+    def on_key(self, event: Key) -> None:
+        if event.key == "tab":
+            current = self.value
+            if not current:
+                return
+
+            event.prevent_default()
+            event.stop()
+
+            path = os.path.expanduser(current)
+            matches = glob.glob(path + "*")
+
+            if os.path.isdir(path) and not current.endswith("/"):
+                matches = glob.glob(path + "/*")
+                if not matches:
+                    self.value = current + "/"
+                    self.cursor_position = len(self.value)
+                    return
+
+            if not matches:
+                return
+
+            if len(matches) == 1:
+                match = matches[0]
+                if os.path.isdir(match):
+                    match += "/"
+            else:
+                match = os.path.commonprefix(matches)
+
+            if current.startswith("~"):
+                match = match.replace(os.path.expanduser("~"), "~", 1)
+
+            if match != current:
+                self.value = match
+                self.cursor_position = len(self.value)
 
 
 LOGO = r"""
@@ -47,7 +88,6 @@ class WelcomeScreen(Screen):
     #app-container {
         width: 60;
         height: auto;
-        border: heavy $accent;
         padding: 1 2;
     }
 
@@ -108,12 +148,10 @@ class WelcomeScreen(Screen):
 
                     with Horizontal(classes="form-row"):
                         yield Label("Video file:", classes="form-label")
-                        video_input = Input(
+                        yield PathInput(
                             placeholder="Enter path to video...",
                             id="video-input",
                         )
-                        yield video_input
-                        yield PathAutoComplete(target=video_input, path=".")
 
                     with Horizontal(classes="form-row"):
                         yield Label("Frame interval:", classes="form-label")
@@ -172,7 +210,6 @@ class ProcessingScreen(Screen):
     #processing-container {
         width: 60;
         height: auto;
-        border: heavy $accent;
         padding: 1 2;
     }
 
@@ -339,9 +376,16 @@ class FaceSelectionScreen(Screen):
     #selection-container {
         width: 65;
         height: auto;
-        max-height: 30;
-        border: heavy $accent;
         padding: 1 2;
+    }
+
+    #faces-list {
+        height: auto;
+        max-height: 20;
+        overflow-y: auto;
+        margin-bottom: 1;
+        border: solid $accent-muted;
+        padding: 1;
     }
 
     #selection-title {
@@ -428,28 +472,31 @@ class FaceSelectionScreen(Screen):
                         "Uncheck faces you want to KEEP visible.",
                         id="selection-help",
                     )
-                    for cluster in self.real_clusters:
-                        sample_info = ""
-                        if cluster.id in self.face_samples:
-                            sample_info = (
-                                f"  [dim]{self.face_samples[cluster.id]}[/dim]"
-                            )
-                        with Horizontal(classes="face-row"):
-                            yield Checkbox(
-                                f"Person {cluster.id + 1}  "
-                                f"({len(cluster.faces)} detections)"
-                                f"{sample_info}",
-                                value=True,
-                                id=f"cluster-{cluster.id}",
-                                classes="face-checkbox",
-                            )
+
+                    with Vertical(id="faces-list"):
+                        for cluster in self.real_clusters:
+                            sample_info = ""
                             if cluster.id in self.face_samples:
-                                yield Button(
-                                    "View",
-                                    id=f"view-{cluster.id}",
-                                    variant="default",
-                                    classes="view-btn",
+                                sample_info = (
+                                    f"  [dim]{self.face_samples[cluster.id]}[/dim]"
                                 )
+                            with Horizontal(classes="face-row"):
+                                yield Checkbox(
+                                    f"Person {cluster.id + 1}  "
+                                    f"({len(cluster.faces)} detections)"
+                                    f"{sample_info}",
+                                    value=True,
+                                    id=f"cluster-{cluster.id}",
+                                    classes="face-checkbox",
+                                )
+                                if cluster.id in self.face_samples:
+                                    yield Button(
+                                        "View",
+                                        id=f"view-{cluster.id}",
+                                        variant="default",
+                                        classes="view-btn",
+                                    )
+
                     with Horizontal(id="blur-method-row"):
                         yield Label("Blur method:", id="blur-method-label")
                         yield Select(
@@ -542,7 +589,6 @@ class EncodingScreen(Screen):
     #encoding-container {
         width: 60;
         height: auto;
-        border: heavy $accent;
         padding: 1 2;
     }
 
@@ -614,14 +660,18 @@ class EncodingScreen(Screen):
 
     def _encode(self) -> None:
         """Run encoding in background thread."""
-        from .encode import encode_video
+        from .encode import encode_video, find_best_encoder
 
         def on_progress(current: int, total: int) -> None:
             pct = (current / total) * 100 if total > 0 else 0
-            self._update_ui(f"Frame {current}/{total}", pct)
+            self._update_ui(f"Frame {current}/{total} (Encoder: {encoder_name})", pct)
 
         try:
-            encode_video(
+            best_enc = find_best_encoder()
+            encoder_name = best_enc[0]
+            self._update_ui(f"Starting encoding with {encoder_name}...", 0)
+
+            encoder_used = encode_video(
                 input_path=self.video_path,
                 output_path=self.output_path,
                 clusters=self.clusters,
@@ -629,8 +679,9 @@ class EncodingScreen(Screen):
                 frame_interval=self.interval,
                 blur_method=self.blur_method,
                 progress_callback=on_progress,
+                encoder_override=best_enc,
             )
-            self._update_ui("Encoding complete!", 100)
+            self._update_ui(f"Encoding complete! (Used {encoder_used})", 100)
             self.app.call_from_thread(self._show_done)
         except Exception as e:
             self._update_ui(f"Error: {e}", 0)
@@ -657,6 +708,8 @@ class PyFaceBlurApp(App):
     CSS = """
     Screen {
         background: $surface;
+        border: heavy $accent;
+        padding: 1 2;
     }
     """
     BINDINGS = [
