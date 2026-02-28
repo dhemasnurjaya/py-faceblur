@@ -116,7 +116,59 @@ def find_best_encoder() -> Tuple[str, List[str], List[str]]:
     if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
         return "h264_nvenc", [], []
 
-    # 2. Linux VA-API (AMD/Intel)
+    # 2. Linux VA-API (AV1)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-vf",
+        "format=nv12,hwupload",
+        "-c:v",
+        "av1_vaapi",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return (
+            "av1_vaapi",
+            ["-vaapi_device", "/dev/dri/renderD128"],
+            ["-vf", "format=nv12,hwupload"],
+        )
+
+    # 3. Linux VA-API (HEVC/H.265)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=64x64:d=0.1",
+        "-vf",
+        "format=nv12,hwupload",
+        "-c:v",
+        "hevc_vaapi",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return (
+            "hevc_vaapi",
+            ["-vaapi_device", "/dev/dri/renderD128"],
+            ["-vf", "format=nv12,hwupload"],
+        )
+
+    # 4. Linux VA-API (H.264)
     cmd = [
         "ffmpeg",
         "-v",
@@ -142,7 +194,7 @@ def find_best_encoder() -> Tuple[str, List[str], List[str]]:
             ["-vf", "format=nv12,hwupload"],
         )
 
-    # 3. AMD AMF (Windows/Proprietary Linux)
+    # 5. AMD AMF (Windows/Proprietary Linux)
     cmd = [
         "ffmpeg",
         "-v",

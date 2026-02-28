@@ -92,7 +92,7 @@ class WelcomeScreen(Screen):
     }
 
     #logo {
-        color: $text;
+        color: $accent;
         text-style: bold;
         margin-bottom: 2;
         width: auto;
@@ -144,7 +144,7 @@ class WelcomeScreen(Screen):
             with Middle():
                 with Vertical(id="app-container"):
                     with Center():
-                        yield Static(LOGO, id="logo")
+                        yield Label("PyFaceBlur", id="logo")
 
                     with Horizontal(classes="form-row"):
                         yield Label("Video file:", classes="form-label")
@@ -644,7 +644,7 @@ class EncodingScreen(Screen):
                     yield Label("Encoding video with face blur...", id="encoding-phase")
                     yield ProgressBar(total=100, id="encoding-progress")
                     yield Label("", id="encoding-status")
-                    yield Label(f"Output: {self.output_path}", id="output-label")
+                    yield Label(f"Output: {self.output_path.name}", id="output-label")
                     yield Button("Done — Exit", id="done-btn", variant="success")
 
     def on_mount(self) -> None:
