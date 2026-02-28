@@ -22,7 +22,7 @@ An interactive command-line tool that automatically detects, clusters, and blurs
 
 ```bash
 # Clone the repository and navigate to the project directory
-cd faceblur-poc
+cd py-faceblur
 
 # Sync dependencies using uv
 uv sync
@@ -44,10 +44,10 @@ uv run pyfaceblur
 4. **Selection:** The app saves a thumbnail of each person to a temporary folder, opens it, and asks you to select which people to blur using interactive checkboxes.
 5. **Encoding:** The app finds the best available video encoder on your system, applies the chosen blur method to the selected faces, interpolates their movement, and generates a new `*_blurred.mp4` video.
 
-## Advanced / POC CLI
+## Advanced / Legacy CLI
 
 The original proof-of-concept command-line interface is also still available for purely extracting and debugging the clustering outputs into an output folder.
 
 ```bash
-uv run faceblur-poc detect --video input.mp4 --output ./output --interval 30 --confidence 0.7
+uv run pyfaceblur-legacy detect --video input.mp4 --output ./output --interval 30 --confidence 0.7
 ```

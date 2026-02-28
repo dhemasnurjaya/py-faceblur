@@ -1,7 +1,7 @@
 [project]
-name = "faceblur-poc"
-version = "0.1.0"
-description = "Face detection and clustering POC"
+name = "py-faceblur"
+version = "1.0.0"
+description = "Interactive CLI for face detection, clustering, and blurring in video"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -14,8 +14,8 @@ dependencies = [
 ]
 
 [project.scripts]
-faceblur-poc = "faceblur.cli:main"
 pyfaceblur = "faceblur.app:run"
+pyfaceblur-legacy = "faceblur.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/faceblur"]
