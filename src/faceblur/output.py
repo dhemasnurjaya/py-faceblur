@@ -5,7 +5,6 @@ from pathlib import Path
 from typing import List, Dict, Tuple
 
 import cv2
-import numpy as np
 
 from .video import Frame
 from .detect import FaceData

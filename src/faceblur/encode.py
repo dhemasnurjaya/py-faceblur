@@ -6,11 +6,9 @@ from pathlib import Path
 from typing import Callable, Dict, List, Optional, Set, Tuple
 
 import cv2
-import numpy as np
 
 from .blur import BlurMethod, apply_blur, get_bboxes_for_frame
 from .cluster import Cluster
-from .detect import FaceData
 
 
 ENCODER_PRIORITY = [

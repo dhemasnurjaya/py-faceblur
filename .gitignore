@@ -11,3 +11,16 @@ wheels/
 
 # Downloaded ML models
 models/
+
+# Video files (avoid committing test videos)
+*.mp4
+*.avi
+*.mkv
+*.mov
+
+# Editor swap files
+.*.swp
+*.swp
+
+# AI Coding context
+.opencode/
