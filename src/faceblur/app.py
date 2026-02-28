@@ -5,7 +5,11 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import warnings
 from pathlib import Path
+
+# Suppress FutureWarnings from dependencies (like scikit-image in uniface)
+warnings.simplefilter(action="ignore", category=FutureWarning)
 
 import cv2
 import questionary
