@@ -106,9 +106,159 @@ def find_best_encoder() -> Tuple[str, List[str], List[str]]:
         "-f",
         "lavfi",
         "-i",
-        "nullsrc=s=64x64:d=0.1",
+        "nullsrc=s=1280x720:d=0.1",
         "-c:v",
         "h264_nvenc",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "h264_nvenc", [], []
+
+    # 2. Linux VA-API (AV1)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1280x720:d=0.1",
+        "-vf",
+        "format=nv12,hwupload",
+        "-c:v",
+        "av1_vaapi",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return (
+            "av1_vaapi",
+            ["-vaapi_device", "/dev/dri/renderD128"],
+            ["-vf", "format=nv12,hwupload"],
+        )
+
+    # 3. Linux VA-API (HEVC/H.265)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1280x720:d=0.1",
+        "-vf",
+        "format=nv12,hwupload",
+        "-c:v",
+        "hevc_vaapi",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return (
+            "hevc_vaapi",
+            ["-vaapi_device", "/dev/dri/renderD128"],
+            ["-vf", "format=nv12,hwupload"],
+        )
+
+    # 4. Linux VA-API (H.264)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-vaapi_device",
+        "/dev/dri/renderD128",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1280x720:d=0.1",
+        "-vf",
+        "format=nv12,hwupload",
+        "-c:v",
+        "h264_vaapi",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return (
+            "h264_vaapi",
+            ["-vaapi_device", "/dev/dri/renderD128"],
+            ["-vf", "format=nv12,hwupload"],
+        )
+
+    # 5. AMD AMF (Windows/Proprietary Linux)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1280x720:d=0.1",
+        "-c:v",
+        "h264_amf",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "h264_amf", [], []
+
+    # 6. Intel QSV
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1280x720:d=0.1",
+        "-c:v",
+        "h264_qsv",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "h264_qsv", [], []
+
+    # 7. Software fallback (libx264 if installed)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1280x720:d=0.1",
+        "-c:v",
+        "libx264",
+        "-f",
+        "null",
+        "-",
+    ]
+    if subprocess.run(cmd, capture_output=True, timeout=5).returncode == 0:
+        return "libx264", [], []
+
+    # 8. Software fallback (libopenh264)
+    cmd = [
+        "ffmpeg",
+        "-v",
+        "quiet",
+        "-f",
+        "lavfi",
+        "-i",
+        "nullsrc=s=1280x720:d=0.1",
+        "-c:v",
+        "libopenh264",
         "-f",
         "null",
         "-",

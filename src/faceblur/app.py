@@ -36,9 +36,6 @@ class PathInput(Input):
             if not current:
                 return
 
-            event.prevent_default()
-            event.stop()
-
             path = os.path.expanduser(current)
             matches = glob.glob(path + "*")
 
@@ -47,6 +44,8 @@ class PathInput(Input):
                 if not matches:
                     self.value = current + "/"
                     self.cursor_position = len(self.value)
+                    event.prevent_default()
+                    event.stop()
                     return
 
             if not matches:
@@ -65,6 +64,8 @@ class PathInput(Input):
             if match != current:
                 self.value = match
                 self.cursor_position = len(self.value)
+                event.prevent_default()
+                event.stop()
 
 
 LOGO = r"""
@@ -86,48 +87,27 @@ class WelcomeScreen(Screen):
     }
 
     #app-container {
-        width: 60;
+        width: 50;
         height: auto;
         padding: 1 2;
     }
 
     #logo {
+        text-align: center;
         color: $accent;
         text-style: bold;
         margin-bottom: 2;
-        width: auto;
-    }
-
-    .form-row {
-        height: 3;
-        align: left middle;
-        margin-bottom: 1;
-    }
-
-    .form-label {
-        width: 16;
-        content-align: right middle;
-        margin-right: 1;
-        color: $text-muted;
-    }
-
-    #video-input {
-        width: 1fr;
-    }
-
-    #interval-input {
-        width: 10;
-    }
-
-    #button-container {
         width: 100%;
-        align: center middle;
-        margin-top: 1;
-        height: 3;
+    }
+
+    .form-input {
+        margin-bottom: 1;
+        width: 100%;
     }
 
     #start-btn {
-        min-width: 16;
+        width: 100%;
+        margin-top: 1;
     }
 
     #error-label {
@@ -143,28 +123,24 @@ class WelcomeScreen(Screen):
         with Center():
             with Middle():
                 with Vertical(id="app-container"):
-                    with Center():
-                        yield Label("PyFaceBlur", id="logo")
+                    yield Label("PyFaceBlur", id="logo")
 
-                    with Horizontal(classes="form-row"):
-                        yield Label("Video file:", classes="form-label")
-                        yield PathInput(
-                            placeholder="Enter path to video...",
-                            id="video-input",
-                        )
+                    yield PathInput(
+                        placeholder="Path to video file...",
+                        id="video-input",
+                        classes="form-input",
+                    )
 
-                    with Horizontal(classes="form-row"):
-                        yield Label("Frame interval:", classes="form-label")
-                        yield Input(
-                            value="30",
-                            id="interval-input",
-                            type="integer",
-                        )
+                    yield Input(
+                        value="30",
+                        placeholder="Frame interval (default 30)",
+                        id="interval-input",
+                        type="integer",
+                        classes="form-input",
+                    )
 
                     yield Label("", id="error-label")
-
-                    with Horizontal(id="button-container"):
-                        yield Button("Start", id="start-btn", variant="primary")
+                    yield Button("Start Processing", id="start-btn", variant="primary")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "start-btn":
@@ -708,7 +684,6 @@ class PyFaceBlurApp(App):
     CSS = """
     Screen {
         background: $surface;
-        border: heavy $accent;
         padding: 1 2;
     }
     """
