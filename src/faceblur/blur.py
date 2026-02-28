@@ -13,6 +13,7 @@ def apply_blur(
     bbox: Tuple[int, int, int, int],
     method: BlurMethod = "gaussian",
     strength: float = 5.0,
+    padding: float = 0.25,
 ) -> np.ndarray:
     """Apply blur to a face region in an image.
 
@@ -21,11 +22,22 @@ def apply_blur(
         bbox: Face bounding box (x1, y1, x2, y2)
         method: Blur method name
         strength: Blur strength multiplier
+        padding: Percentage to expand the bounding box to prevent tracking lag exposure
 
     Returns:
         The modified image
     """
     x1, y1, x2, y2 = bbox
+
+    # Expand bounding box to account for interpolation lag
+    w_pad = int((x2 - x1) * padding)
+    h_pad = int((y2 - y1) * padding)
+
+    x1 -= w_pad
+    y1 -= h_pad
+    x2 += w_pad
+    y2 += h_pad
+
     h, w = image.shape[:2]
 
     # Clamp to image bounds
@@ -91,7 +103,8 @@ def interpolate_bboxes(
     Returns:
         Interpolated bounding box
     """
-    return tuple(int(a + t * (b - a)) for a, b in zip(bbox_a, bbox_b))
+    res = tuple(int(a + t * (b - a)) for a, b in zip(bbox_a, bbox_b))
+    return (res[0], res[1], res[2], res[3])
 
 
 def get_bboxes_for_frame(

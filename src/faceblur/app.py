@@ -201,8 +201,16 @@ def run() -> None:
 
         blur_method = questionary.select(
             "Select blur method:",
-            choices=["gaussian", "pixelate", "blackout", "elliptical", "median"],
-            default="gaussian",
+            choices=[
+                questionary.Choice(
+                    "Pixelate (Blazingly Fast - Recommended)", value="pixelate"
+                ),
+                questionary.Choice("Blackout (Blazingly Fast)", value="blackout"),
+                questionary.Choice("Gaussian (Moderate CPU)", value="gaussian"),
+                questionary.Choice("Elliptical (Heavy CPU)", value="elliptical"),
+                questionary.Choice("Median (Heavy CPU)", value="median"),
+            ],
+            default="pixelate",
         ).ask()
 
         if not blur_method:
