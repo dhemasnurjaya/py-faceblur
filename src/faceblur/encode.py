@@ -506,7 +506,7 @@ def encode_video(
     height, width = first_frame.shape[:2]
 
     # Build FFmpeg encode command
-    ffmpeg_cmd = ["ffmpeg", "-y"]
+    ffmpeg_cmd = ["ffmpeg", "-y", "-v", "error"]
     ffmpeg_cmd.extend(enc_in_args)
     ffmpeg_cmd.extend(
         [
@@ -546,7 +546,7 @@ def encode_video(
     proc = subprocess.Popen(
         ffmpeg_cmd,
         stdin=subprocess.PIPE,
-        stdout=subprocess.PIPE,
+        stdout=subprocess.DEVNULL,
         stderr=subprocess.PIPE,
     )
 
