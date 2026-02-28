@@ -52,11 +52,10 @@ class WelcomeScreen(Screen):
     }
 
     #logo {
-        text-align: center;
         color: $text;
         text-style: bold;
         margin-bottom: 2;
-        width: 100%;
+        width: auto;
     }
 
     .form-row {
@@ -104,7 +103,8 @@ class WelcomeScreen(Screen):
         with Center():
             with Middle():
                 with Vertical(id="app-container"):
-                    yield Static(LOGO, id="logo")
+                    with Center():
+                        yield Static(LOGO, id="logo")
 
                     with Horizontal(classes="form-row"):
                         yield Label("Video file:", classes="form-label")
@@ -362,11 +362,11 @@ class FaceSelectionScreen(Screen):
     }
 
     .face-checkbox {
-        width: 80%;
+        width: 1fr;
     }
 
     .view-btn {
-        min-width: 8;
+        width: auto;
         margin-left: 2;
     }
 

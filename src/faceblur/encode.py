@@ -189,6 +189,19 @@ def encode_video(
     bitrate = video_info["bitrate"]
     total_frames = video_info["total_frames"]
 
+    # Open input video to get actual frame dimensions and begin reading
+    cap = cv2.VideoCapture(str(input_path))
+    if not cap.isOpened():
+        raise RuntimeError(f"Could not open video: {input_path}")
+
+    # Read first frame to correctly handle rotation metadata from phone videos
+    ret, first_frame = cap.read()
+    if not ret:
+        raise RuntimeError("Could not read first frame to determine dimensions.")
+
+    # Override width/height from ffprobe with actual numpy array dimensions
+    height, width = first_frame.shape[:2]
+
     # Build FFmpeg encode command
     ffmpeg_cmd = [
         "ffmpeg",
@@ -225,11 +238,6 @@ def encode_video(
         ]
     )
 
-    # Open input video
-    cap = cv2.VideoCapture(str(input_path))
-    if not cap.isOpened():
-        raise RuntimeError(f"Could not open video: {input_path}")
-
     # Start FFmpeg process
     proc = subprocess.Popen(
         ffmpeg_cmd,
@@ -240,11 +248,8 @@ def encode_video(
 
     try:
         frame_idx = 0
+        frame = first_frame
         while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-
             # Get bboxes for this frame (exact or interpolated)
             face_bboxes = get_bboxes_for_frame(
                 frame_idx,
@@ -257,11 +262,17 @@ def encode_video(
                 frame = apply_blur(frame, bbox, method=blur_method)
 
             # Write frame to FFmpeg
-            proc.stdin.write(frame.tobytes())
+            if proc.stdin:
+                proc.stdin.write(frame.tobytes())
 
             frame_idx += 1
             if progress_callback and total_frames > 0:
                 progress_callback(frame_idx, total_frames)
+
+            # Read next frame
+            ret, frame = cap.read()
+            if not ret:
+                break
 
     finally:
         cap.release()
