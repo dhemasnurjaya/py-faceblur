@@ -47,8 +47,7 @@ class WelcomeScreen(Screen):
     #app-container {
         width: 60;
         height: auto;
-        max-height: 24;
-        border: round $accent;
+        border: heavy $accent;
         padding: 1 2;
     }
 
@@ -56,32 +55,48 @@ class WelcomeScreen(Screen):
         text-align: center;
         color: $text;
         text-style: bold;
+        margin-bottom: 2;
+        width: 100%;
+    }
+
+    .form-row {
+        height: 3;
+        align: left middle;
         margin-bottom: 1;
+    }
+
+    .form-label {
+        width: 16;
+        content-align: right middle;
+        margin-right: 1;
+        color: $text-muted;
     }
 
     #video-input {
-        margin-bottom: 1;
+        width: 1fr;
     }
 
     #interval-input {
-        width: 20;
-        margin-bottom: 1;
+        width: 10;
+    }
+
+    #button-container {
+        width: 100%;
+        align: center middle;
+        margin-top: 1;
+        height: 3;
     }
 
     #start-btn {
-        margin-top: 1;
-        width: 100%;
+        min-width: 16;
     }
 
     #error-label {
         color: $error;
         text-align: center;
         display: none;
-    }
-
-    .field-label {
-        margin-bottom: 0;
-        color: $text-muted;
+        width: 100%;
+        margin-top: 1;
     }
     """
 
@@ -90,22 +105,28 @@ class WelcomeScreen(Screen):
             with Middle():
                 with Vertical(id="app-container"):
                     yield Static(LOGO, id="logo")
-                    yield Label("Video file:", classes="field-label")
-                    video_input = Input(
-                        placeholder="Enter path to video file...",
-                        id="video-input",
-                    )
-                    yield video_input
-                    yield PathAutoComplete(target=video_input, path=".")
-                    yield Label("Frame interval:", classes="field-label")
-                    yield Input(
-                        value="30",
-                        placeholder="Frame interval",
-                        id="interval-input",
-                        type="integer",
-                    )
+
+                    with Horizontal(classes="form-row"):
+                        yield Label("Video file:", classes="form-label")
+                        video_input = Input(
+                            placeholder="Enter path to video...",
+                            id="video-input",
+                        )
+                        yield video_input
+                        yield PathAutoComplete(target=video_input, path=".")
+
+                    with Horizontal(classes="form-row"):
+                        yield Label("Frame interval:", classes="form-label")
+                        yield Input(
+                            value="30",
+                            id="interval-input",
+                            type="integer",
+                        )
+
                     yield Label("", id="error-label")
-                    yield Button("Start", id="start-btn", variant="primary")
+
+                    with Horizontal(id="button-container"):
+                        yield Button("Start", id="start-btn", variant="primary")
 
     def on_button_pressed(self, event: Button.Pressed) -> None:
         if event.button.id == "start-btn":
@@ -151,7 +172,7 @@ class ProcessingScreen(Screen):
     #processing-container {
         width: 60;
         height: auto;
-        border: round $accent;
+        border: heavy $accent;
         padding: 1 2;
     }
 
@@ -193,7 +214,7 @@ class ProcessingScreen(Screen):
                     yield Label("", id="status-label")
 
     def on_mount(self) -> None:
-        self.run_worker(self._process(), thread=True)
+        self.run_worker(self._process, thread=True)
 
     def _update_ui(self, phase: str, status: str, progress: float) -> None:
         """Thread-safe UI update."""
@@ -319,7 +340,7 @@ class FaceSelectionScreen(Screen):
         width: 65;
         height: auto;
         max-height: 30;
-        border: round $accent;
+        border: heavy $accent;
         padding: 1 2;
     }
 
@@ -349,9 +370,21 @@ class FaceSelectionScreen(Screen):
         margin-left: 2;
     }
 
-    #blur-method-label {
+    #blur-method-row {
+        height: 3;
+        align: left middle;
         margin-top: 1;
+    }
+
+    #blur-method-label {
+        width: 16;
+        content-align: right middle;
+        margin-right: 1;
         color: $text-muted;
+    }
+
+    #blur-method {
+        width: 24;
     }
 
     #buttons-row {
@@ -417,18 +450,19 @@ class FaceSelectionScreen(Screen):
                                     variant="default",
                                     classes="view-btn",
                                 )
-                    yield Label("Blur method:", id="blur-method-label")
-                    yield Select(
-                        [
-                            ("Gaussian", "gaussian"),
-                            ("Pixelate", "pixelate"),
-                            ("Blackout", "blackout"),
-                            ("Elliptical", "elliptical"),
-                            ("Median", "median"),
-                        ],
-                        value="gaussian",
-                        id="blur-method",
-                    )
+                    with Horizontal(id="blur-method-row"):
+                        yield Label("Blur method:", id="blur-method-label")
+                        yield Select(
+                            [
+                                ("Gaussian", "gaussian"),
+                                ("Pixelate", "pixelate"),
+                                ("Blackout", "blackout"),
+                                ("Elliptical", "elliptical"),
+                                ("Median", "median"),
+                            ],
+                            value="gaussian",
+                            id="blur-method",
+                        )
                     with Horizontal(id="buttons-row"):
                         yield Button("Back", id="back-btn")
                         yield Button(
@@ -508,7 +542,7 @@ class EncodingScreen(Screen):
     #encoding-container {
         width: 60;
         height: auto;
-        border: round $accent;
+        border: heavy $accent;
         padding: 1 2;
     }
 
@@ -568,7 +602,7 @@ class EncodingScreen(Screen):
                     yield Button("Done — Exit", id="done-btn", variant="success")
 
     def on_mount(self) -> None:
-        self.run_worker(self._encode(), thread=True)
+        self.run_worker(self._encode, thread=True)
 
     def _update_ui(self, status: str, progress: float) -> None:
         self.app.call_from_thread(self._do_update_ui, status, progress)
