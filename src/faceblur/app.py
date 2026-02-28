@@ -46,8 +46,18 @@ def open_directory(path: Path) -> None:
     except Exception as e:
         console.print(f"[yellow]Could not automatically open directory: {e}[/yellow]")
 
+
 def run() -> None:
     """Main CLI entry point."""
+    if len(sys.argv) > 1 and sys.argv[1] in ("-h", "--help"):
+        console.print(
+            Panel.fit(
+                "[bold blue]PyFaceBlur[/bold blue]\n\nUsage: pyfaceblur\nInteractive CLI for blurring faces in videos.",
+                border_style="blue",
+            )
+        )
+        return
+
     console.print(Panel.fit("[bold blue]PyFaceBlur[/bold blue]", border_style="blue"))
 
     # 1. Input gathering
@@ -64,7 +74,9 @@ def run() -> None:
     interval_str = questionary.text(
         "Frame interval for face detection (default: 30):",
         default="30",
-        validate=lambda text: text.isdigit() and int(text) > 0 or "Must be a positive integer",
+        validate=lambda text: (
+            text.isdigit() and int(text) > 0 or "Must be a positive integer"
+        ),
     ).ask()
 
     if not interval_str:
@@ -76,7 +88,7 @@ def run() -> None:
     try:
         # 2. Processing (Extraction & Detection)
         frames_dir = str(Path(temp_dir) / "frames")
-        
+
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -85,27 +97,37 @@ def run() -> None:
             TimeElapsedColumn(),
             console=console,
         ) as progress:
-            
             task_extract = progress.add_task("[cyan]Extracting frames...", total=None)
             frames = extract_frames(str(video_path), frames_dir, interval)
-            progress.update(task_extract, completed=100, total=100, description="[green]Frames extracted")
+            progress.update(
+                task_extract,
+                completed=100,
+                total=100,
+                description="[green]Frames extracted",
+            )
 
             if not frames:
                 console.print("[red]Error: No frames extracted.[/red]")
                 return
 
-            task_detect = progress.add_task("[cyan]Detecting faces...", total=len(frames))
+            task_detect = progress.add_task(
+                "[cyan]Detecting faces...", total=len(frames)
+            )
             detector = FaceDetector()
             all_faces = []
-            
+
             for i, frame in enumerate(frames):
                 try:
                     faces = detector.detect_faces(frame.path, frame.index)
                     all_faces.extend(faces)
                 except Exception:
                     pass
-                progress.update(task_detect, advance=1, description=f"[cyan]Detecting faces ({len(all_faces)} found)...")
-            
+                progress.update(
+                    task_detect,
+                    advance=1,
+                    description=f"[cyan]Detecting faces ({len(all_faces)} found)...",
+                )
+
             detector.close()
             progress.update(task_detect, description="[green]Detection complete")
 
@@ -116,7 +138,12 @@ def run() -> None:
             task_cluster = progress.add_task("[cyan]Clustering faces...", total=None)
             clusters = cluster_faces(all_faces)
             real_clusters = [c for c in clusters if c.id >= 0]
-            progress.update(task_cluster, completed=100, total=100, description=f"[green]Found {len(real_clusters)} people")
+            progress.update(
+                task_cluster,
+                completed=100,
+                total=100,
+                description=f"[green]Found {len(real_clusters)} people",
+            )
 
         # 3. Face Selection
         samples_dir = Path(temp_dir) / "face_samples"
@@ -132,7 +159,7 @@ def run() -> None:
                 if crop.size > 0:
                     sample_path = samples_dir / f"person_{cluster.id + 1:02d}.jpg"
                     cv2.imwrite(str(sample_path), crop)
-                    
+
             face_choices.append(
                 questionary.Choice(
                     title=f"Person {cluster.id + 1} ({len(cluster.faces)} detections)",
@@ -142,9 +169,13 @@ def run() -> None:
             )
 
         console.print("\n[bold]Face Selection[/bold]")
-        console.print(f"Face sample images have been saved to: [blue]{samples_dir}[/blue]")
+        console.print(
+            f"Face sample images have been saved to: [blue]{samples_dir}[/blue]"
+        )
         open_directory(samples_dir)
-        console.print("Please review the images, then select who to blur in the terminal.")
+        console.print(
+            "Please review the images, then select who to blur in the terminal."
+        )
 
         if not face_choices:
             console.print("[yellow]No valid face clusters found to select.[/yellow]")
@@ -167,7 +198,7 @@ def run() -> None:
         blur_method = questionary.select(
             "Select blur method:",
             choices=["gaussian", "pixelate", "blackout", "elliptical", "median"],
-            default="gaussian"
+            default="gaussian",
         ).ask()
 
         if not blur_method:
@@ -175,12 +206,12 @@ def run() -> None:
 
         # 4. Encoding
         console.print("\n[bold]Encoding Video[/bold]")
-        
+
         # Probe early to get total frames for progress bar
         best_enc = find_best_encoder()
         encoder_name = best_enc[0]
         console.print(f"Using hardware/software encoder: [cyan]{encoder_name}[/cyan]")
-        
+
         stem = video_path.stem
         suffix = video_path.suffix
         output_path = video_path.parent / f"{stem}_blurred{suffix}"
@@ -194,7 +225,6 @@ def run() -> None:
             TimeElapsedColumn(),
             console=console,
         ) as progress:
-            
             encode_task = progress.add_task("[cyan]Encoding...", total=100)
 
             def on_progress(current: int, total: int) -> None:
@@ -217,7 +247,9 @@ def run() -> None:
                 console.print(f"[red]Encoding failed: {e}[/red]")
                 return
 
-        console.print(f"\n[bold green]Done![/bold green] Saved to: [blue]{output_path}[/blue]")
+        console.print(
+            f"\n[bold green]Done![/bold green] Saved to: [blue]{output_path}[/blue]"
+        )
 
     finally:
         shutil.rmtree(temp_dir, ignore_errors=True)
