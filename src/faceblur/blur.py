@@ -40,8 +40,9 @@ def apply_blur(
     face_region = image[y1:y2, x1:x2]
 
     if method == "gaussian":
-        ksize = int(face_region.shape[0] * strength) | 1  # Must be odd
-        ksize = max(ksize, 3)
+        # Calculate kernel size based on face size, but clamp to max 99 to save CPU
+        ksize = int(face_region.shape[0] * (strength / 10.0)) | 1
+        ksize = max(3, min(ksize, 99))
         blurred = cv2.GaussianBlur(face_region, (ksize, ksize), 0)
     elif method == "pixelate":
         ph = max(1, int(face_region.shape[0] / (strength * 2)))
@@ -55,8 +56,8 @@ def apply_blur(
     elif method == "blackout":
         blurred = np.zeros_like(face_region)
     elif method == "elliptical":
-        ksize = int(face_region.shape[0] * strength) | 1
-        ksize = max(ksize, 3)
+        ksize = int(face_region.shape[0] * (strength / 10.0)) | 1
+        ksize = max(3, min(ksize, 99))
         full_blur = cv2.GaussianBlur(face_region, (ksize, ksize), 0)
         mask = np.zeros(face_region.shape[:2], dtype=np.uint8)
         center = (face_region.shape[1] // 2, face_region.shape[0] // 2)
@@ -65,8 +66,8 @@ def apply_blur(
         mask_3ch = cv2.merge([mask, mask, mask])
         blurred = np.where(mask_3ch > 0, full_blur, face_region)
     elif method == "median":
-        ksize = int(face_region.shape[0] * strength) | 1
-        ksize = max(ksize, 3)
+        ksize = int(face_region.shape[0] * (strength / 10.0)) | 1
+        ksize = max(3, min(ksize, 99))
         blurred = cv2.medianBlur(face_region, ksize)
     else:
         raise ValueError(f"Unknown blur method: {method}")

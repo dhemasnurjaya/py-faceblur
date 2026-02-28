@@ -67,13 +67,13 @@ def run() -> None:
     # 1. Input gathering
     video_str = questionary.path(
         "Enter path to video file:",
-        validate=lambda p: Path(p).is_file() or "File does not exist",
+        validate=lambda p: Path(p).expanduser().is_file() or "File does not exist",
     ).ask()
 
     if not video_str:
         return
 
-    video_path = Path(video_str)
+    video_path = Path(video_str).expanduser()
 
     interval_str = questionary.text(
         "Frame interval for face detection (default: 30):",
